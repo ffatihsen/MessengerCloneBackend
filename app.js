@@ -9,6 +9,7 @@ require("./db/connection")
 
 // Import Files
 const Users = require("./models/Users");
+const Converstation = require("./models/Converstaions");
 
 const port = process.env.PORT || 8000 ;
 
@@ -96,6 +97,39 @@ app.post("/api/login", async (req,res) => {
     }
 })
 
+
+app.post("/api/conversation", async (req,res) => {
+    try {
+        const {senderId, reciverId } = req.body ;
+
+        const newConversation = new Converstation({members : [senderId, reciverId ]});
+        await newConversation.save();
+        res.status(200).send("Conversation created succesfully")
+
+    } catch (error) {
+        console.log("Error ->", error);
+        
+    }
+})
+
+
+app.get("/api/conversation/:userId", async (req,res) => {
+    try {
+        const userId = req.params.userId;
+        const conversations = await Converstation.find({members : {$in: [userId]}});
+
+        const conversationUserData = Promise.all(conversations.map( async (converstation) => {
+            const reciverId = converstation.members.find((member) => member !== userId );
+            const user = await Users.findById(reciverId);
+            return {user: {email:user.email, fullName:user.fullName}, conversationId : converstation._id}
+
+        }))
+        res.status(200).json(await conversationUserData);
+    } catch (error) {
+        console.log("error->",error);
+        
+    }
+})
 
 app.listen(port, () => {
     console.log("listening on port " + port);
