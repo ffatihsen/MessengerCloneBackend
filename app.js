@@ -1,7 +1,7 @@
 const express = require("express")
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
+const cors = require("cors")
 
 //Connect DB
 require("./db/connection")
@@ -19,6 +19,7 @@ const port = process.env.PORT || 8000 ;
 const app = express() ;
 app.use(express.json());
 app.use(express.urlencoded({extended:false}));
+app.use(cors());
 
 
 //Routes
@@ -29,6 +30,7 @@ app.get("/", (req,res) => {
 app.post("/api/register", async (req, res) => {
     try {
         const { fullName, email, password } = req.body;
+        console.log("ullName, email, password ->",fullName, email, password );
         if (!fullName || !email || !password) {
             return res.status(400).send("Please fill all required fields");
         } else {
@@ -84,9 +86,10 @@ app.post("/api/login", async (req,res) => {
                             $set: {token}
                         })
                         user.save();
+                        return res.status(200).json({user : {id : user._id,  email : user.email , fullName : user.fullName}, token : token });
                     })
 
-                    res.status(200).json({user : {email : user.email , fullName : user.fullName}, token : user.token });
+                    
                 }
 
             }
@@ -99,7 +102,7 @@ app.post("/api/login", async (req,res) => {
 })
 
 
-app.post("/api/conversation", async (req,res) => {
+app.post("/api/conversations", async (req,res) => {
     try {
         const {senderId, reciverId } = req.body ;
 
@@ -114,15 +117,15 @@ app.post("/api/conversation", async (req,res) => {
 })
 
 
-app.get("/api/conversation/:userId", async (req,res) => {
+app.get("/api/conversations/:userId", async (req,res) => {
     try {
         const userId = req.params.userId;
         const conversations = await Converstation.find({members : {$in: [userId]}});
 
         const conversationUserData = Promise.all(conversations.map( async (converstation) => {
             const reciverId = converstation.members.find((member) => member !== userId );
-            const user = await Users.findById(reciverId);
-            return {user: {email:user.email, fullName:user.fullName}, conversationId : converstation._id}
+            const user = reciverId?  await Users.findById(reciverId) : null
+            return  {user: {email:user?.email, fullName:user?.fullName}, conversationId : converstation._id} 
 
         }))
         res.status(200).json(await conversationUserData);
